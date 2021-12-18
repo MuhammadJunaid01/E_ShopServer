@@ -45,8 +45,18 @@ async function run() {
       // console.log(result);
       res.json(result);
     });
-    // my order api
+    // my order api with pay  query
     app.get("/myorder/:email", async (req, res) => {
+      const email = req.params.email;
+      const pay = "pay";
+      const query = { email: email, pay: pay };
+      console.log("email", email);
+      const cursor = ordersCollection.find(query);
+      const result = await cursor.toArray();
+      res.json(result);
+    });
+    // my order api
+    app.get("/totalMyOrder/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       console.log("email", email);
@@ -54,17 +64,56 @@ async function run() {
       const result = await cursor.toArray();
       res.json(result);
     });
+    // all orders get
+    app.get("/allorders", async (req, res) => {
+      const cursor = ordersCollection.find({});
+      const result = await cursor.toArray();
+      res.json(result);
+    });
+    //update order  status
+    app.put("/confirmOrder/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: false };
+      const updateDoc = {
+        $set: {
+          status: "Confirm",
+        },
+      };
+      const result = await ordersCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.json(result);
+      console.log("update many", result);
+    });
+    // update my order after checkout
+    app.put("/myorder/:email", async (req, res) => {
+      const data = req.body;
+      const email = req.params.email;
+      const filter = { email: email };
+      const options = { upsert: false };
+      const updateDoc = {
+        $set: {
+          pay: "paid",
+        },
+      };
+      const result = await ordersCollection.updateMany(
+        filter,
+        updateDoc,
+        options
+      );
+      res.json(result);
+      console.log("update many", result);
+    });
     // cancele order api
-    // app.delete("/myorder/:id", async (req, res) => {
-    //   console.log("my order hitted", req.params.id);
-    //   const id = req.params.id;
-    //   const query = {
-    //     id: _id,
-    //   };
-    //   const result = await ordersCollection.deleteOne(query);
-    //   res.json(result);
-    //   console.log("delete ", result);
-    // });
+    app.delete("/myorder/:id", async (req, res) => {
+      console.log("my order hitted", req.params.id);
+      const id = req.params.id;
+      const result = await ordersCollection.deleteOne({ _id: ObjectId(id) });
+      res.json(result);
+    });
     // user create and save mongoDb
     app.post("/users", async (req, res) => {
       console.log("reviews", req.body);
@@ -110,7 +159,10 @@ async function run() {
       const amount = paymentInfo.price * 100;
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
-        payment_method_typs: ["card"],
+        currency: "eur",
+        automatic_payment_methods: {
+          enabled: true,
+        },
       });
       res.json({ clientSecret: paymentIntent.client_secret });
     });
